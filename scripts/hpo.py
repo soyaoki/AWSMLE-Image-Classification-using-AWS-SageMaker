@@ -132,7 +132,7 @@ def main(args):
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
-    test_loader = create_data_loaders(os.path.join(args.data_dir, 'test'), args.batch_size, transform=test_transform)
+    test_loader = create_data_loaders(os.path.join(args.data_dir, 'valid'), args.batch_size, transform=test_transform)
     
     '''
     TODO: Call the train function to start training your model
@@ -152,7 +152,7 @@ def main(args):
     '''
     logger.info("Saving the model.")
     path = os.path.join(args.model_dir, "model.pth")
-    torch.save(model, path)
+    torch.save(model.state_dict(), path)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
