@@ -159,7 +159,7 @@ def main(args):
     '''
     logger.info("Saving the model.")
     path = os.path.join(args.model_dir, "model.pth")
-    torch.save(model, path)
+    torch.save(model.state_dict(), path)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
