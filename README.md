@@ -8,6 +8,7 @@ Use AWS Sagemaker to train a pretrained model that can perform image classificat
      - `hpo.py` - script for hyperparamete optimization.
      - `inference.py` : script for deploy and inference.
      - `train_model.py` : script for training model.
+ - `profiler-output` : profiler output of SageMaker Debugger Profiling Report.
 
 ## Project Set Up and Installation
 Enter AWS through the gateway in the course and open SageMaker Studio. 
@@ -17,18 +18,23 @@ Download/Make the dataset available.
 ### Dataset
 The provided dataset is the dogbreed classification dataset which can be found in the classroom.
 The project is designed to be dataset independent so if there is a dataset that is more interesting or relevant to your work, you are welcome to use it to complete the project.
-![](./screenshots/S3.png)
+- Distribution of dataset(train).
+
 ![](./screenshots/distribution_of_traindata.png)
+
 ![](./screenshots/distribution_of_traindata_2.png)
 
 ### Access
 Upload the data to an S3 bucket through the AWS Gateway so that SageMaker has access to the data. 
+
 ![](./screenshots/role.png)
+
+![](./screenshots/S3.png)
 
 ## Hyperparameter Tuning
 
 ### Turning conditions
-- Pre-Trained mdel : __Resnet18__, as it is low compute resources.
+- Pre-Trained mdel : __Resnet18__, as it needs low compute resources.
 
 - Metric : __average test loss__
 
@@ -41,6 +47,7 @@ Upload the data to an S3 bucket through the AWS Gateway so that SageMaker has ac
     | Epochs | [2, 3, 4] |
 
 ### Results
+
 ![](screenshots/hyperparam_turning_job.png)
 
 - __Log metrics__ : 
@@ -57,9 +64,52 @@ Upload the data to an S3 bucket through the AWS Gateway so that SageMaker has ac
 
 ## Debugging and Profiling
 
-**TODO**: Give an overview of how you performed model debugging and profiling in Sagemaker
+To perform model debugging and profiling in Sagemaker...
+
+In [train_and_deploy.ipynb](./train_and_deploy.ipynb), rules and configs were set as bellow.
+```
+rules = [
+    Rule.sagemaker(rule_configs.loss_not_decreasing()),
+    ProfilerRule.sagemaker(rule_configs.LowGPUUtilization()),
+    ProfilerRule.sagemaker(rule_configs.ProfilerReport()),
+    Rule.sagemaker(rule_configs.vanishing_gradient()),
+    Rule.sagemaker(rule_configs.overfit()),
+    Rule.sagemaker(rule_configs.overtraining()),
+    Rule.sagemaker(rule_configs.poor_weight_initialization()),
+]
+
+profiler_config = ProfilerConfig(
+    system_monitor_interval_millis=500, framework_profile_params=FrameworkProfile(num_steps=10)
+)
+
+debugger_config = DebuggerHookConfig(
+    hook_parameters={"train.save_interval": "100", "eval.save_interval": "10"}
+)
+
+estimator = PyTorch(
+    entry_point="scripts/train_model.py",
+    role=role,
+    py_version="py36",
+    framework_version="1.8",
+    instance_count=1,
+    instance_type="ml.p3.2xlarge",
+    hyperparameters=hyperparameters,
+    profiler_config=profiler_config,
+    debugger_hook_config=debugger_config,
+    rules=rules,
+)
+```
+
+In [train_model.py](./scripts/train_model.py), hook was added.
+```
+hook = smd.Hook.create_from_json_file() # Line added from hpo.py
+hook.register_hook(model) # Line added from hpo.py
+```
 
 ### Results
+
+The profiler html/pdf file is [here](./profiler-output).
+
 In summary, the profiling and debugging analysis of the training job revealed several key insights:
 
 #### 1. Resource Utilization
@@ -80,10 +130,9 @@ In summary, the profiling and debugging analysis of the training job revealed se
 
 In conclusion, the profiling and debugging analysis provided valuable insights into the training job's performance, highlighting areas for optimization to enhance efficiency and reduce resource waste.
 
-The profiler html/pdf file is [here]().
-
 
 ## Model Deployment
+
 ![](./screenshots/endpoint.png)
 
 ### Deployed model
@@ -110,12 +159,17 @@ response = predictor.predict(json.dumps(request_dict), initial_args={"ContentTyp
 
 ### Insights from the model
 
+Although the number of images for training were almost same, there were some breeds witch the estimator were not good at predicting. One way to improve this is to choose a pre-trained model with high expressive power, such as Resnet50.
+
 (The model inferenced label "001" as label "001". The label "001" has 64 train data.)
+
 ![](./screenshots/inference_001.png)
 
 (The model inferenced label "072" as label "072". The label "072" has 48 train data.)
+
 ![](./screenshots/inference_072.png)
 
 (The model inferenced label "089" as label "042^". The label "089" has 53 train data.)
+
 ![](./screenshots/inference_089.png)
 
